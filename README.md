@@ -1,6 +1,8 @@
 # Review Extraction Pipeline
 
-A minimalist, end-to-end pipeline that extracts structured insights—key themes, sentiment, pros, cons, and reviewer details—from raw product reviews using **LangChain**, **Groq (Llama 3.1)**, **FastAPI**, and **MongoDB Atlas**, with a **Streamlit** dashboard interface.
+An end-to-end pipeline that extracts structured insights—key themes, sentiment, pros, cons, and reviewer details—from raw product reviews using **LangChain**, **Groq (Llama 3.1)**, **FastAPI**, and **MongoDB Atlas**, with a **Streamlit** dashboard interface.
+<img width="1470" height="836" alt="image" src="https://github.com/user-attachments/assets/484c8e71-ba41-483e-9b2c-cb868cbc65fc" />
+<img width="1468" height="833" alt="image" src="https://github.com/user-attachments/assets/3a1d3605-0bd6-4a30-b7eb-1c7af982a599" />
 
 ---
 
