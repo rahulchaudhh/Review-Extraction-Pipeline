@@ -1,6 +1,7 @@
 import os
 import requests
 import streamlit as st
+from extractor import analyze_and_save_review, get_stored_reviews
 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 
@@ -83,12 +84,15 @@ st.markdown('<div class="sub-title">Extract key sentiment, themes, and pros/cons
 # Helper function
 def fetch_all_reviews():
     try:
-        res = requests.get(f"{API_URL}/reviews", timeout=4)
+        res = requests.get(f"{API_URL}/reviews", timeout=2)
         if res.status_code == 200:
             return res.json().get("reviews", [])
     except Exception:
         pass
-    return []
+    try:
+        return get_stored_reviews()
+    except Exception:
+        return []
 
 reviews_data = fetch_all_reviews()
 
@@ -122,9 +126,9 @@ with st.sidebar:
         pass
 
     if api_online:
-        st.caption("Backend Server: Connected")
+        st.caption("Backend Server: Connected (FastAPI)")
     else:
-        st.caption("Backend Server: Disconnected")
+        st.caption("Backend Server: Direct Cloud Mode")
 
 
 tab1, tab2 = st.tabs(["Analyze", "Database"])
@@ -163,55 +167,60 @@ with tab1:
                 st.warning("Please enter review text.")
             else:
                 with st.spinner("Analyzing..."):
+                    data = None
                     try:
-                        res = requests.post(f"{API_URL}/analyze", json={"text": review_input}, timeout=15)
+                        res = requests.post(f"{API_URL}/analyze", json={"text": review_input}, timeout=5)
                         if res.status_code == 200:
                             data = res.json()
-                            
-                            sentiment = (data.get("sentiment") or "neutral").lower()
-                            sentiment_label = (
-                                "Positive" if sentiment == "pos"
-                                else "Negative" if sentiment == "neg"
-                                else "Neutral"
-                            )
-                            
-                            c1, c2 = st.columns(2)
-                            c1.metric("Reviewer", data.get("name") or "Anonymous")
-                            c2.metric("Sentiment", sentiment_label)
+                    except Exception:
+                        pass
+                    
+                    if not data:
+                        try:
+                            data = analyze_and_save_review(review_input)
+                        except Exception as ex:
+                            st.error(f"Analysis error: {ex}")
 
-                            st.markdown("**Summary**")
-                            st.write(data.get("summary") or "No summary.")
+                    if data:
+                        sentiment = (data.get("sentiment") or "neutral").lower()
+                        sentiment_label = (
+                            "Positive" if sentiment == "pos"
+                            else "Negative" if sentiment == "neg"
+                            else "Neutral"
+                        )
+                        
+                        c1, c2 = st.columns(2)
+                        c1.metric("Reviewer", data.get("name") or "Anonymous")
+                        c2.metric("Sentiment", sentiment_label)
 
-                            themes = data.get("key_themes") or []
-                            if themes:
-                                st.markdown("**Themes**")
-                                tags = " ".join([f'<span class="meta-tag">{t}</span>' for t in themes])
-                                st.markdown(tags, unsafe_allow_html=True)
+                        st.markdown("**Summary**")
+                        st.write(data.get("summary") or "No summary.")
 
-                            st.markdown("---")
-                            col_p, col_c = st.columns(2)
-                            with col_p:
-                                st.markdown("**Pros**")
-                                pros = data.get("pros") or []
-                                if pros:
-                                    for p in pros:
-                                        st.write(f"• {p}")
-                                else:
-                                    st.caption("None reported")
+                        themes = data.get("key_themes") or []
+                        if themes:
+                            st.markdown("**Themes**")
+                            tags = " ".join([f'<span class="meta-tag">{t}</span>' for t in themes])
+                            st.markdown(tags, unsafe_allow_html=True)
 
-                            with col_c:
-                                st.markdown("**Cons**")
-                                cons = data.get("cons") or []
-                                if cons:
-                                    for c in cons:
-                                        st.write(f"• {c}")
-                                else:
-                                    st.caption("None reported")
+                        st.markdown("---")
+                        col_p, col_c = st.columns(2)
+                        with col_p:
+                            st.markdown("**Pros**")
+                            pros = data.get("pros") or []
+                            if pros:
+                                for p in pros:
+                                    st.write(f"• {p}")
+                            else:
+                                st.caption("None reported")
 
-                        else:
-                            st.error(f"API Error: {res.json().get('detail')}")
-                    except Exception as e:
-                        st.error(f"Failed to connect to server: {e}")
+                        with col_c:
+                            st.markdown("**Cons**")
+                            cons = data.get("cons") or []
+                            if cons:
+                                for c in cons:
+                                    st.write(f"• {c}")
+                            else:
+                                st.caption("None reported")
         else:
             st.caption("Enter review text on the left and click 'Analyze Review'.")
 
@@ -224,9 +233,8 @@ with tab2:
         sentiment_filter = st.selectbox("Sentiment Filter", ["All", "Positive", "Negative", "Neutral"], label_visibility="collapsed")
 
     try:
-        res = requests.get(f"{API_URL}/reviews", timeout=5)
-        if res.status_code == 200:
-            docs = res.json().get("reviews", [])
+        docs = fetch_all_reviews()
+        if docs:
             
             if sentiment_filter == "Positive":
                 docs = [d for d in docs if d.get("sentiment") == "pos"]
